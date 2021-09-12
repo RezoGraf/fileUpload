@@ -2,98 +2,124 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
+
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
-func clearConsole() {
-	cmd := exec.Command("cmd", "/c", "cls")
-	cmd.Stdout = os.Stdout
-	cmd.Run()
+type TemplateRenderer struct {
+	templates *template.Template
 }
 
-func scanFiles() {
+// Render renders a template document
+func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
 
+	// Add global methods if data is a map
+	if viewContext, isMap := data.(map[string]interface{}); isMap {
+		viewContext["reverse"] = c.Echo().Reverse
+	}
+
+	return t.templates.ExecuteTemplate(w, name, data)
+}
+
+// func clearConsole() {
+// 	cmd := exec.Command("cmd", "/c", "cls")
+// 	cmd.Stdout = os.Stdout
+// 	cmd.Run()
+// }
+
+func scanFiles() []string {
+	var fileNames []string
 	files, err := ioutil.ReadDir("./tmp/")
 	if err != nil {
 		log.Fatal(err)
+		return fileNames
 	}
-
 	for _, file := range files {
+		fileNames = append(fileNames, file.Name())
 		fmt.Println(file.Name(), file.IsDir())
 	}
+	return fileNames
+}
+
+func upload(c echo.Context) error {
+	// Read form fields
+	// name := c.FormValue("name")
+	// email := c.FormValue("email")
+
+	//------------
+	// Read files
+	//------------
+
+	// Multipart form
+	form, err := c.MultipartForm()
+	if err != nil {
+		return err
+	}
+	files := form.File["files"]
+
+	for _, file := range files {
+		// Source
+		src, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+
+		// Destination
+		dst, err := os.Create("./tmp/" + file.Filename)
+		if err != nil {
+			return err
+		}
+		defer dst.Close()
+
+		// Copy
+		if _, err = io.Copy(dst, src); err != nil {
+			return err
+		}
+
+	}
+
+	// return c.HTML(http.StatusOK, fmt.Sprintf("<p>Uploaded successfully %d files with fields name=%s and email=%s.</p>", len(files), name, email))
+	return c.HTML(http.StatusOK, fmt.Sprintf("<p>Uploaded successfully %d files with fields .</p>", len(files)))
+
 }
 
 func main() {
-	clearConsole()
+	listFiles := scanFiles()
+	// clearConsole()
 
 	path, err := os.Getwd()
 	if err != nil {
 		log.Println(err)
 	}
-
 	fmt.Println("TEMP DIR:", path+"/tmp/")
-	http.ListenAndServe(":9000", http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		clearConsole()
-		scanFiles()
-		if req.Method == "POST" {
-			src, hdr, err := req.FormFile("my-file")
-			if err != nil {
-				http.Error(res, err.Error(), 500)
-				return
-			}
-			defer src.Close()
 
-			dst, err := os.Create("./tmp/" + hdr.Filename)
-			if err != nil {
-				http.Error(res, err.Error(), 500)
-				return
-			}
-			clearConsole()
-			scanFiles()
+	e := echo.New()
+	renderer := &TemplateRenderer{
+		templates: template.Must(template.ParseGlob("*.html")),
+	}
+	e.Renderer = renderer
 
-			defer dst.Close()
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
 
-			io.Copy(dst, src)
-		}
+	e.Static("/", "public")
+	e.POST("/upload", upload)
 
-		res.Header().Set("Content-Type", "text/html")
-		io.WriteString(res, `
-		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-F3w7mX95PdgyTmZZMECAngseQB83DfGTowi0iMjiWaeVhAn4FJkqJByhZMI3AhiU" crossorigin="anonymous">
-		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-/bQdsTh/da6pkI1MST/rWKFNjaCP5gBSY4sEBT38Q/9RBh9AH40zEOg7Hlq2THRZ" crossorigin="anonymous"></script>
-		<div class="container">
-		<div class="container">
-		<div class="row">
-		  <div class="col">
-			1 of 3
-		  </div>
-		  <div class="col-6">
-			2 of 3 (wider)
-		  </div>
-		  <div class="col">
-			3 of 3
-		  </div>
-		</div>
-		<div class="row">
-		  <div class="col">
-			1 of 3
-		  </div>
-		  <div class="col-5">
-			2 of 3 (wider)
-		  </div>
-		  <div class="col">
-			3 of 3
-		  </div>
-		</div>
-	  </div>
-		<form method="POST" enctype="multipart/form-data">
-        <input type="file" name="my-file">
-        <input type="submit">
-        </form>
-        `)
-	}))
+	// Named route "foobar"
+	e.GET("/upload", func(c echo.Context) error {
+		return c.Render(http.StatusOK, "template.html", map[string]interface{}{
+			"FileNames": listFiles,
+		})
+	}).Name = "foobar"
+
+	e.Logger.Fatal(e.Start(":8000"))
+
 }

@@ -1,0 +1,40 @@
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-F3w7mX95PdgyTmZZMECAngseQB83DfGTowi0iMjiWaeVhAn4FJkqJByhZMI3AhiU" crossorigin="anonymous">
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-/bQdsTh/da6pkI1MST/rWKFNjaCP5gBSY4sEBT38Q/9RBh9AH40zEOg7Hlq2THRZ" crossorigin="anonymous"></script>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Multiple file upload</title>
+    </head>
+    <body>
+        <h1>Upload multiple files with fields</h1>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <!-- Name: <input type="text" name="name"><br>
+            Email: <input type="email" name="email"><br> -->
+            Files: <input type="file" name="files" multiple><br><br>
+            <input type="submit" value="Submit">
+        </form>
+        <!-- <h1>Hello {{index . "name"}}</h1> -->
+
+        <!-- <p>{{ with $x := index . "reverse" }}
+           {{ call $x "foobar" }} &lt;-- this will call the $x with parameter "foobar"
+           {{ end }}
+        </p> -->
+        <table class="table">
+            <thead class="thead-dark">
+
+              <tr>
+                <th scope="col">Файлы</th>
+              </tr>
+              
+            </thead>
+            {{range .FileNames}}
+            <tbody>
+            
+                <th>{{.}}</th>
+              
+            </tbody>
+            {{end}}
+    </table>
+
+    </body>
+</html>
