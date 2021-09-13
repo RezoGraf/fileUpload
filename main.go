@@ -35,6 +35,8 @@ func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c 
 // }
 
 func scanFiles() []string {
+	os.Mkdir("tmp", 0777)
+
 	var fileNames []string
 	files, err := ioutil.ReadDir("./tmp/")
 	if err != nil {
@@ -103,7 +105,7 @@ func main() {
 
 	e := echo.New()
 	renderer := &TemplateRenderer{
-		templates: template.Must(template.ParseGlob("*.html")),
+		templates: template.Must(template.ParseGlob("./template/*.html")),
 	}
 	e.Renderer = renderer
 
@@ -115,7 +117,7 @@ func main() {
 
 	// Named route "foobar"
 	e.GET("/upload", func(c echo.Context) error {
-		return c.Render(http.StatusOK, "template.html", map[string]interface{}{
+		return c.Render(http.StatusOK, "upload.html", map[string]interface{}{
 			"FileNames": listFiles,
 		})
 	}).Name = "foobar"
